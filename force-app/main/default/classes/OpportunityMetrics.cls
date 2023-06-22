@@ -1,36 +1,63 @@
+/**
+* @description       : 
+* @author            : Rebeca Vazquez
+* @canal             : 
+* @last modified on  : 21-06-2023
+* @last modified by  : Rebeca Vazquez
+**/
+
 public class OpportunityMetrics {
+
+    /**
+  * @author Rebeca Vazquez
+  * @date 21/06/2023
+  * @description Metodo para el calculo de opportunidades
+  * @param methodName calculateOpportunityWinRatesByStage
+  * @param output winRateByStage
+  * @param input winRateByStage
+  * @param output winRateByStage
+  * @param options winRateByStage
+  * @return true
+  */
 
     public static Map<String,Decimal> calculateOpportunityWinRatesByStage () {
         Map<String,Decimal> winRateByStage = new Map<String,Decimal>();
 
-        List<Opportunity> listOpp =  [SELECT StageName FROM Opportunity  WITH SECURITY_ENFORCED];
-        Map<String, Integer> stageCounts = new Map<String, Integer>();
-        for (Opportunity opp : listOpp) {
-            String stageName = opp.StageName;
-            if (!stageCounts.containsKey(stageName)) {
-                stageCounts.put(stageName, 0);
+        list<String> stageCounts = new list<string>();
+        for (OpportunityStage opp : [SELECT Id,ApiName, MasterLabel, IsClosed, IsWon, DefaultProbability FROM OpportunityStage WITH SECURITY_ENFORCED]) {
+            String stageName = opp.ApiName;
+            stageCounts.add(stageName);
+        }
+    
+        List<Opportunity> opps = [SELECT Id,StageName,IsWon from Opportunity WITH SECURITY_ENFORCED];
+        Map<String, Integer> oppsByStage = new Map<String, Integer>();  
+        Map<String, Integer> oppsWonByStage = new Map<String, Integer>();  
+        for (String s : stageCounts) {
+            Integer d = 0;
+            Integer w = 0;
+            oppsByStage.put(s, d);
+            oppsWonByStage.put(s, w);
+            for (Opportunity o : opps) {        
+                if (o.StageName == s) {
+                oppsByStage.put(s, oppsByStage.get(s)+1);
+                if (o.IsWon) {
+                    oppsWonByStage.put(s, oppsWonByStage.get(s)+1);
+                }
+                } 
             }
-            stageCounts.put(stageName, stageCounts.get(stageName) + 1);
         }
-
-        Map<String, Integer> wonCounts = new Map<String, Integer>();
-        List<Opportunity> listOppWon = [SELECT StageName, COUNT(Id) FROM Opportunity WHERE IsWon = true  WITH SECURITY_ENFORCED GROUP BY StageName];
-        for (AggregateResult result : listOppWon) {
-            String stageName = (String) result.get('StageName');
-            Integer count = (Integer) result.get('expr0');
-            wonCounts.put(stageName, count);
+    
+        for (String s : stageCounts) {
+            Integer totalOpps = oppsByStage.get(s);
+            Integer wonOpps = oppsWonByStage.get(s);
+            Decimal winrate = 0;
+            if (totalOpps>0) {
+                winrate = Decimal.valueOf(wonOpps)/Decimal.valueOf(totalOpps);
+            }
+            winrate = winrate.setScale(2);
+            winRateByStage.put(s, winrate);
         }
-
-        for (String stageName : stageCounts.keySet()) {
-            Integer totalOpportunities = stageCounts.get(stageName);
-            Integer wonOpportunities = wonCounts.containsKey(stageName) ? wonCounts.get(stageName) : 0;
-
-            Decimal winRate = totalOpportunities > 0 ? Decimal.valueOf(wonOpportunities) / Decimal.valueOf(totalOpportunities) : 0;
-            winRate = winRate.setScale(2);
-
-            winRateByStage.put(stageName, winRate);
-        }
-
+    
         return winRateByStage;
     }
 }
